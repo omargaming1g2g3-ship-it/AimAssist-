@@ -8,13 +8,49 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
+
     private lateinit var mediaProjectionManager: MediaProjectionManager
-    private val REQUEST_CODE_SCREEN_CAPTURE = 100
-    private val REQUEST_CODE_OVERLAY = 101
-    private val REQUEST_CODE_ACCESSIBILITY = 102
+
+    // تسجيل مخصص لطلب إذن الرسم فوق التطبيقات
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+            checkAccessibilityAndStart()
+        } else {
+            Toast.makeText(this, "Overlay permission required", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // مخصص لطلب التقاط الشاشة
+    private val screenCaptureLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            val serviceIntent = Intent(this, OverlayService::class.java).apply {
+                putExtra("resultCode", result.resultCode)
+                putExtra("data", result.data)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+            Toast.makeText(this, "Aim Assist Active - Auto Headshot", Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
+
+    // مخصص لطلب إعدادات إمكانية الوصول
+    private val accessibilityLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        checkAccessibilityAndStart()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,7 +60,8 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_start).setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-                startActivityForResult(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), REQUEST_CODE_OVERLAY)
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                overlayPermissionLauncher.launch(intent)
             } else {
                 checkAccessibilityAndStart()
             }
@@ -32,17 +69,17 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_open_game).setOnClickListener {
             val intent = packageManager.getLaunchIntentForPackage("com.tencent.ig")
-            if (intent != null) startActivity(intent) else Toast.makeText(this, "PUBG Mobile not installed", Toast.LENGTH_SHORT).show()
+            if (intent != null) startActivity(intent)
+            else Toast.makeText(this, "PUBG Mobile not installed", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun checkAccessibilityAndStart() {
-        val isAccessibilityEnabled = isAccessibilityServiceEnabled()
-        if (!isAccessibilityEnabled) {
-            Toast.makeText(this, "Please enable Aim Assist accessibility service", Toast.LENGTH_LONG).show()
-            startActivityForResult(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), REQUEST_CODE_ACCESSIBILITY)
-        } else {
+        if (isAccessibilityServiceEnabled()) {
             startScreenCapture()
+        } else {
+            Toast.makeText(this, "Please enable Aim Assist accessibility service", Toast.LENGTH_LONG).show()
+            accessibilityLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
     }
 
@@ -53,24 +90,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startScreenCapture() {
-        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), REQUEST_CODE_SCREEN_CAPTURE)
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        when (requestCode) {
-            REQUEST_CODE_SCREEN_CAPTURE -> if (resultCode == RESULT_OK && data != null) {
-                val serviceIntent = Intent(this, OverlayService::class.java).apply {
-                    putExtra("resultCode", resultCode)
-                    putExtra("data", data)
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent)
-                else startService(serviceIntent)
-                Toast.makeText(this, "Aim Assist Active - Auto Headshot", Toast.LENGTH_LONG).show()
-                finish()
-            }
-            REQUEST_CODE_ACCESSIBILITY -> checkAccessibilityAndStart()
-            else -> {}
-        }
+        screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
     }
 }
