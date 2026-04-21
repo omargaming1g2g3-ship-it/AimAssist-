@@ -22,15 +22,13 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    # تحميل gradle-wrapper الرسمي
+    # إعداد Gradle بدون الحاجة لملف gradlew في المستودع
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
 
-    - name: Make gradlew executable
-      run: chmod +x gradlew
-
+    # بناء التطبيق مباشرة باستخدام gradle (بدون ./gradlew)
     - name: Build APK
-      run: ./gradlew assembleDebug
+      run: gradle assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
