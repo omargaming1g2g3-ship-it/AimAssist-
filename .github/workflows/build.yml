@@ -22,9 +22,18 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    # 👇 ده السطر الجديد اللي هيحل المشكلة 👇
-    - name: Make gradlew executable
-      run: chmod +x gradlew
+    # خطوات التأكد من صلاحيات ملف gradlew
+    - name: Check gradlew file
+      run: ls -la gradlew
+
+    - name: Fix gradlew permissions and line endings
+      run: |
+        # نمنع Git من تغيير نهايات الأسطر تلقائيًا
+        git config --global core.autocrlf false
+        # نضبط صلاحية التنفيذ للملف
+        chmod +x gradlew
+        # نتأكد من نهايات الأسطر بصيغة Linux (LF)
+        dos2unix gradlew || sed -i 's/\r$//' gradlew
 
     - name: Build APK
       run: ./gradlew assembleDebug
