@@ -37,7 +37,7 @@ class OverlayService : Service() {
     private var targetY = -1
     private val inputSize = 640
 
-    // إعادة استخدام البافرات لتجنب تسرب الذاكرة
+    // إعادة استخدام البافرات
     private var reusableBitmap: Bitmap? = null
     private var reusableByteBuffer: ByteBuffer? = null
 
@@ -88,12 +88,9 @@ class OverlayService : Service() {
     private fun loadModel() {
         val gpuDelegate = if (CompatibilityList().isDelegateSupportedOnThisDevice) {
             GpuDelegate().apply { initialize() }
-        } else {
-            null
-        }
+        } else null
         val options = Interpreter.Options().apply {
-            // إصلاح الخطأ رقم 1: إضافة الـ delegate فقط إذا لم يكن null
-            gpuDelegate?.let { addDelegate(it) }
+            gpuDelegate?.let { addDelegate(it) }   // إصلاح: إضافة فقط إذا لم يكن null
             setNumThreads(4)
         }
         interpreter = Interpreter(loadModelFile(), options)
@@ -111,13 +108,12 @@ class OverlayService : Service() {
     private fun startScreenCapture() {
         val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE)
                 as android.media.projection.MediaProjectionManager
-        // إصلاح الخطأ رقم 2: معالجة آمنة لـ intent extras
         val data = intent?.getParcelableExtra<Intent>("data")
         if (data == null) {
             stopSelf()
             return
         }
-        mediaProjection = projectionManager.getMediaProjection(Activity.RESULT_OK, data)
+        mediaProjection = projectionManager.getMediaProjection(RESULT_OK, data)
         val width = resources.displayMetrics.widthPixels
         val height = resources.displayMetrics.heightPixels
         imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
@@ -130,17 +126,14 @@ class OverlayService : Service() {
 
     private fun startDetectionLoop() {
         Thread {
-            // إصلاح الخطأ رقم 5: إعادة استخدام البافرات بدلاً من إنشاء Bitmap جديد كل مرة
             var frameCount = 0
             while (isRunning) {
                 val image = imageReader.acquireLatestImage() ?: continue
-                val planes = image.planes
-                val buffer = planes[0].buffer
+                val buffer = image.planes[0].buffer
                 val pixels = ByteArray(buffer.remaining())
                 buffer.get(pixels)
                 image.close()
 
-                // إعادة استخدام Bitmap إذا أمكن
                 if (reusableBitmap == null || reusableBitmap?.width != imageReader.width) {
                     reusableBitmap?.recycle()
                     reusableBitmap = Bitmap.createBitmap(imageReader.width, imageReader.height, Bitmap.Config.ARGB_8888)
@@ -160,10 +153,7 @@ class OverlayService : Service() {
                     val conf = output[0][4][i]
                     if (conf > 0.5f && conf > bestConf) {
                         bestConf = conf
-                        bestBox = floatArrayOf(
-                            output[0][0][i], output[0][1][i],
-                            output[0][2][i], output[0][3][i]
-                        )
+                        bestBox = floatArrayOf(output[0][0][i], output[0][1][i], output[0][2][i], output[0][3][i])
                     }
                 }
 
@@ -183,17 +173,13 @@ class OverlayService : Service() {
 
                 handler.post { overlayView.invalidate() }
 
-                // تنظيف دوري للذاكرة كل 100 إطار
-                if (frameCount++ % 100 == 0) {
-                    System.gc()
-                }
+                if (frameCount++ % 100 == 0) System.gc()
                 Thread.sleep(33)
             }
         }.start()
     }
 
     private fun bitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
-        // إصلاح الخطأ رقم 5: إعادة استخدام ByteBuffer
         val size = inputSize * inputSize * 3 * 4
         if (reusableByteBuffer == null || reusableByteBuffer?.capacity() != size) {
             reusableByteBuffer = ByteBuffer.allocateDirect(size)
@@ -201,7 +187,6 @@ class OverlayService : Service() {
         }
         val buffer = reusableByteBuffer!!
         buffer.rewind()
-
         val pixels = IntArray(inputSize * inputSize)
         bitmap.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
         for (pixel in pixels) {
@@ -215,7 +200,6 @@ class OverlayService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // إصلاح الخطأ رقم 6: ضمان إطلاق الموارد وإيقاف الخدمة
     override fun onDestroy() {
         isRunning = false
         virtualDisplay.release()
@@ -225,11 +209,10 @@ class OverlayService : Service() {
         reusableBitmap?.recycle()
         reusableBitmap = null
         reusableByteBuffer = null
-        stopSelf()  // يضمن إيقاف الخدمة في كل الحالات
+        stopSelf()   // إصلاح: ضمان إيقاف الخدمة
         super.onDestroy()
     }
 
-    // إصلاح الخطأ رقم 3: إشعار سليم مع NotificationChannel (Android 8+)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -243,7 +226,7 @@ class OverlayService : Service() {
             val notification = Notification.Builder(this, "aim_assist_channel")
                 .setContentTitle("Aim Assist")
                 .setContentText("Auto Headshot Active")
-                .setSmallIcon(android.R.drawable.sym_def_app_icon)  // أيقونة نظام آمنة
+                .setSmallIcon(android.R.drawable.sym_def_app_icon)   // إصلاح: أيقونة آمنة
                 .build()
             startForeground(1, notification)
         }
