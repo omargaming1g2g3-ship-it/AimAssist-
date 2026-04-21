@@ -22,13 +22,11 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    # إعداد Gradle (بدون الحاجة لملف gradlew)
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
-        cache-disabled: true  # لتجنب أخطاء cache
+        cache-disabled: true
 
-    # بناء التطبيق مباشرة باستخدام gradle
     - name: Build APK
       run: gradle assembleDebug
 
