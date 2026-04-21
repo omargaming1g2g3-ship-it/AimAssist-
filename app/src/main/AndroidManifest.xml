@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />               <!-- ✅ جديد -->
+    <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />  <!-- ✅ جديد -->
 
     <application
         android:allowBackup="true"
