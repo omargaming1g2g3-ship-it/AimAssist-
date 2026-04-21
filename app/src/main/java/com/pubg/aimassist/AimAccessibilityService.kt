@@ -20,29 +20,36 @@ class AimAccessibilityService : AccessibilityService() {
         }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // لا حاجة لمعالجة الأحداث هنا
+    private val handler = Handler(Looper.getMainLooper())
+    private var isServiceActive = true
+    private val tapRunnable = object : Runnable {
+        override fun run() {
+            if (!isServiceActive) return
+            if (targetX != -1 && targetY != -1) {
+                val now = System.currentTimeMillis()
+                if (now - lastTapTime >= TAP_DELAY_MS) {
+                    performTap(targetX, targetY)
+                    lastTapTime = now
+                }
+            }
+            handler.postDelayed(this, 50)
+        }
     }
 
-    override fun onInterrupt() {
-        // الخدمة توقفت
-    }
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) { }
+
+    override fun onInterrupt() { }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        // بدء حلقة النقر التلقائي
-        Handler(Looper.getMainLooper()).postDelayed(object : Runnable {
-            override fun run() {
-                if (targetX != -1 && targetY != -1) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastTapTime >= TAP_DELAY_MS) {
-                        performTap(targetX, targetY)
-                        lastTapTime = now
-                    }
-                }
-                Handler(Looper.getMainLooper()).postDelayed(this, 50)
-            }
-        }, 100)
+        isServiceActive = true
+        handler.postDelayed(tapRunnable, 100)
+    }
+
+    override fun onDestroy() {
+        isServiceActive = false
+        handler.removeCallbacks(tapRunnable)
+        super.onDestroy()
     }
 
     private fun performTap(x: Int, y: Int) {
@@ -53,7 +60,7 @@ class AimAccessibilityService : AccessibilityService() {
             gestureBuilder.addStroke(GestureDescription.StrokeDescription(path, 0, 50))
             dispatchGesture(gestureBuilder.build(), null, null)
         } catch (e: Exception) {
-            // تجاهل الأخطاء البسيطة
+            // تجاهل
         }
     }
 }
