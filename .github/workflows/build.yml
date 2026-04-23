@@ -22,11 +22,11 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install Gradle
+    - name: Install Gradle 8.7
       run: |
-        wget https://services.gradle.org/distributions/gradle-8.2-bin.zip
-        unzip gradle-8.2-bin.zip
-        echo "$(pwd)/gradle-8.2/bin" >> $GITHUB_PATH
+        wget https://services.gradle.org/distributions/gradle-8.7-bin.zip
+        unzip gradle-8.7-bin.zip
+        echo "$(pwd)/gradle-8.7/bin" >> $GITHUB_PATH
 
     - name: Build APK with Gradle
       run: gradle assembleDebug
